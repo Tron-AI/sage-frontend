@@ -1,10 +1,24 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
+
+// import PageWithAuth from '../../hocs/pageWithAuth'
 import { Calendar, AlertCircle, Clock, FileCheck, Users } from 'lucide-react'
 
 const Dashboard = () => {
+  const router = useRouter()
+  const [isAuthenticated, setIsAuthenticated] = useState(false)
   const [selectedStat, setSelectedStat] = useState(null)
+  const [tableData, setTableData] = useState({
+    lastSubmitted: [],
+    delayedRecords: []
+  })
+  const alertsData = [
+    { alert: 'Submission Error', date: '01/09/2024' },
+    { alert: 'System Warning', date: '02/09/2024' },
+    { alert: 'Server Downtime', date: '03/09/2024' }
+  ]
   const [searchParams, setSearchParams] = useState({
     from: '',
     to: '',
@@ -12,27 +26,102 @@ const Dashboard = () => {
     product: '',
     user: ''
   })
+  const [stats, setStats] = useState([
+    { title: 'New Submissions', count: 0, icon: FileCheck, color: 'bg-gradient-to-br from-green-400 to-green-600' },
+    { title: 'Delayed Submissions', count: 0, icon: Clock, color: 'bg-gradient-to-br from-red-400 to-red-600' },
+    { title: 'Total Submissions', count: 0, icon: Users, color: 'bg-gradient-to-br from-blue-400 to-blue-600' }
+  ])
 
   const inputClass =
     'mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md text-sm shadow-sm placeholder-gray-400 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-colors duration-200'
 
   const getStatusColor = status => {
-    const colors = {
-      Pending: 'text-yellow-600 bg-yellow-100',
-      'In Progress': 'text-blue-600 bg-blue-100',
-      Delayed: 'text-red-600 bg-red-100'
+    switch (status) {
+      case 'Pending':
+        return 'bg-yellow-200 text-yellow-800'
+      case 'In Progress':
+        return 'bg-blue-200 text-blue-800'
+      case 'Delayed':
+        return 'bg-red-200 text-red-800'
+      default:
+        return ''
     }
-    return colors[status] || 'text-gray-600 bg-gray-100'
   }
 
-  const stats = [
-    { title: 'New Submissions', count: 5, icon: FileCheck, color: 'bg-gradient-to-br from-green-400 to-green-600' },
-    { title: 'Delayed Submissions', count: 20, icon: Clock, color: 'bg-gradient-to-br from-red-400 to-red-600' },
-    { title: 'Total Submissions', count: 43, icon: Users, color: 'bg-gradient-to-br from-blue-400 to-blue-600' }
-  ]
-
-  const handleSearch = () => {
+  const handleSearch = async () => {
     console.log('Searching with params:', searchParams)
+    const token = localStorage.getItem('accessToken')
+    if (!token) {
+      // Redirect to login page if access token is not found
+      router.push('/login')
+
+      return
+    }
+    setIsAuthenticated(true)
+    try {
+      console.log(searchParams)
+      const response = await fetch('http://127.0.0.1:8000/api/uploads/', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(searchParams)
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch data')
+      }
+
+      const data = await response.json()
+      console.log(data)
+
+      // Update the stats state with the new data
+      setStats([
+        {
+          title: 'New Submissions',
+          count: data.new_submissions,
+          icon: FileCheck,
+          color: 'bg-gradient-to-br from-green-400 to-green-600'
+        },
+        {
+          title: 'Delayed Submissions',
+          count: data.delayed_submissions,
+          icon: Clock,
+          color: 'bg-gradient-to-br from-red-400 to-red-600'
+        },
+        {
+          title: 'Total Submissions',
+          count: data.total_submissions,
+          icon: Users,
+          color: 'bg-gradient-to-br from-blue-400 to-blue-600'
+        }
+      ])
+      const { last_submitted, delayed_records } = data
+      setTableData({
+        lastSubmitted: last_submitted,
+        delayedRecords: delayed_records
+      })
+    } catch (error) {
+      console.error('Error fetching data:', error)
+    }
+  }
+  const handleClear = () => {
+    // Reset the search fields to empty values
+    setSearchParams({
+      from: '',
+      to: '',
+      domain: '',
+      product: '',
+      user: ''
+    })
+  }
+
+  useEffect(() => {
+    handleSearch()
+  }, [])
+  if (!isAuthenticated) {
+    return <div>Loading...</div> // Or null to not render anything
   }
 
   return (
@@ -68,12 +157,21 @@ const Dashboard = () => {
               </div>
             ))}
           </div>
-          <button
-            onClick={handleSearch}
-            className='bg-indigo-600 text-white px-6 py-2 rounded-md w-full sm:w-auto hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition-colors duration-200 transform hover:scale-105'
-          >
-            Search
-          </button>
+          <div className='flex space-x-4'>
+            <button
+              onClick={handleSearch}
+              className='bg-indigo-600 text-white px-6 py-2 rounded-md w-full sm:w-auto hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition-colors duration-200 transform hover:scale-105'
+            >
+              Search
+            </button>
+
+            <button
+              onClick={handleClear}
+              className='bg-gray-300 text-gray-700 px-6 py-2 rounded-md w-full sm:w-auto hover:bg-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 transition-colors duration-200 transform hover:scale-105'
+            >
+              Clear Fields
+            </button>
+          </div>
         </div>
 
         {/* Stats */}
@@ -81,9 +179,7 @@ const Dashboard = () => {
           {stats.map((stat, index) => (
             <div
               key={index}
-              className={`${
-                stat.color
-              } p-6 rounded-xl shadow-lg transform transition-all duration-200 hover:scale-105 cursor-pointer ${
+              className={`${stat.color} p-6 rounded-xl shadow-lg transform transition-all duration-200 hover:scale-105 cursor-pointer ${
                 selectedStat === index ? 'ring-4 ring-offset-2 ring-indigo-500' : ''
               }`}
               onClick={() => setSelectedStat(selectedStat === index ? null : index)}
@@ -98,92 +194,142 @@ const Dashboard = () => {
             </div>
           ))}
         </div>
-
-        {/* Tables */}
         <div className='grid grid-cols-1 lg:grid-cols-3 gap-6'>
-          {[
-            {
-              title: 'Last Submitted',
-              headers: ['Date', 'Domain', 'User'],
-              data: [
-                ['01/09/2024', 'Domain1', 'User1'],
-                ['02/09/2024', 'Domain2', 'User2'],
-                ['03/09/2024', 'Domain3', 'User3']
-              ]
-            },
-            {
-              title: 'Alerts',
-              headers: ['Alert', 'Date'],
-              data: [
-                ['Submission Error', '01/09/2024'],
-                ['System Warning', '02/09/2024'],
-                ['Server Downtime', '03/09/2024']
-              ],
-              icon: AlertCircle
-            },
-            {
-              title: 'Delayed Records',
-              headers: ['Date', 'Domain', 'Status'],
-              data: [
-                ['01/09/2024', 'Domain1', 'Pending'],
-                ['02/09/2024', 'Domain2', 'In Progress'],
-                ['03/09/2024', 'Domain3', 'Delayed']
-              ]
-            }
-          ].map((table, index) => (
-            <div
-              key={index}
-              className='bg-white p-6 rounded-xl shadow-lg overflow-hidden transform transition-all duration-200 hover:shadow-xl'
-            >
-              <div className='flex items-center justify-between mb-4'>
-                <h2 className='text-lg font-semibold text-gray-800'>{table.title}</h2>
-                {table.icon && <table.icon className='h-5 w-5 text-gray-500' />}
-              </div>
-              <div className='overflow-x-auto'>
-                <table className='min-w-full divide-y divide-gray-200'>
-                  <thead className='bg-gray-50'>
-                    <tr>
-                      {table.headers.map((header, i) => (
-                        <th
-                          key={i}
-                          className='px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider'
-                        >
-                          {header}
-                        </th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody className='bg-white divide-y divide-gray-200'>
-                    {table.data.map((row, rowIndex) => (
-                      <tr key={rowIndex} className='hover:bg-gray-50 transition-colors duration-150'>
-                        {row.map((cell, cellIndex) => (
-                          <td key={cellIndex}>
-                            <p
-                              className={`px-6  whitespace-nowrap ${
-                                table.headers[cellIndex] === 'Status'
-                                  ? `rounded-full ${getStatusColor(
-                                      cell
-                                    )} px-4 w-full p-2 text-center text-sm font-medium`
-                                  : 'py-4 text-gray-900'
-                              }`}
-                            >
-                              {cell}
-                            </p>
-                          </td>
-                        ))}
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+          {/* Last Submitted Table */}
+          <div className='bg-white p-6 rounded-xl shadow-lg overflow-hidden transform transition-all duration-200 hover:shadow-xl'>
+            <div className='flex items-center justify-between mb-4'>
+              <h2 className='text-lg font-semibold text-gray-800'>Last Submitted</h2>
             </div>
-          ))}
+            <div className='overflow-x-auto hide-scrollbar'>
+              <style jsx>{`
+                .hide-scrollbar::-webkit-scrollbar {
+                  display: none;
+                }
+                .hide-scrollbar {
+                  -ms-overflow-style: none; /* Internet Explorer 10+ */
+                  scrollbar-width: none; /* Firefox */
+                }
+              `}</style>
+              <table className='min-w-full divide-y divide-gray-200'>
+                <thead className='bg-gray-50'>
+                  <tr>
+                    <th className='px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider'>
+                      Date
+                    </th>
+                    <th className='px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider'>
+                      Domain
+                    </th>
+                    <th className='px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider'>
+                      User
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className='bg-white divide-y divide-gray-200'>
+                  {tableData.lastSubmitted.map((row, index) => (
+                    <tr key={index} className='hover:bg-gray-50 transition-colors duration-150'>
+                      <td className='px-6 py-4 text-gray-900'>{row.date}</td>
+                      <td className='px-6 py-4 text-gray-900'>{row.domain}</td>
+                      <td className='px-6 py-4 text-gray-900'>{row.user || 'N/A'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div className='bg-white p-6 rounded-xl shadow-lg overflow-hidden transform transition-all duration-200 hover:shadow-xl'>
+            <div className='flex items-center justify-between mb-4'>
+              <h2 className='text-lg font-semibold text-gray-800'>Alerts</h2>
+            </div>
+            <div className='overflow-x-auto hide-scrollbar'>
+              <style jsx>{`
+                .hide-scrollbar::-webkit-scrollbar {
+                  display: none;
+                }
+                .hide-scrollbar {
+                  -ms-overflow-style: none; /* Internet Explorer 10+ */
+                  scrollbar-width: none; /* Firefox */
+                }
+              `}</style>
+              <table className='min-w-full divide-y divide-gray-200'>
+                <thead className='bg-gray-50'>
+                  <tr>
+                    <th className='px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider'>
+                      Alert
+                    </th>
+                    <th className='px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider'>
+                      Date
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className='bg-white divide-y divide-gray-200'>
+                  {alertsData.map((alert, index) => (
+                    <tr key={index} className='hover:bg-gray-50 transition-colors duration-150'>
+                      <td className='px-6 py-4 text-gray-900'>{alert.alert}</td>
+                      <td className='px-6 py-4 text-gray-900'>{alert.date}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* Delayed Records Table */}
+          <div className='bg-white p-6 rounded-xl shadow-lg overflow-hidden transform transition-all duration-200 hover:shadow-xl'>
+            <div className='flex items-center justify-between mb-4'>
+              <h2 className='text-lg font-semibold text-gray-800'>Delayed Records</h2>
+            </div>
+            <div className='overflow-x-auto hide-scrollbar'>
+              <style jsx>{`
+                .hide-scrollbar::-webkit-scrollbar {
+                  display: none;
+                }
+                .hide-scrollbar {
+                  -ms-overflow-style: none; /* Internet Explorer 10+ */
+                  scrollbar-width: none; /* Firefox */
+                }
+              `}</style>
+              <table className='min-w-full divide-y divide-gray-200'>
+                <thead className='bg-gray-50'>
+                  <tr>
+                    <th className='px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider'>
+                      Date
+                    </th>
+                    <th className='px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider'>
+                      Domain
+                    </th>
+                    <th className='px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider'>
+                      Status
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className='bg-white divide-y divide-gray-200'>
+                  {tableData.delayedRecords.map((row, index) => (
+                    <tr key={index} className='hover:bg-gray-50 transition-colors duration-150'>
+                      <td className='px-6 py-4 text-gray-900'>{row.date}</td>
+                      <td className='px-6 py-4 text-gray-900'>{row.domain}</td>
+                      <td className='px-6 py-4'>
+                        <p
+                          className={`rounded-full ${getStatusColor(row.status)} px-4 py-2 text-center text-sm font-medium`}
+                        >
+                          {row.status}
+                        </p>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
         </div>
       </div>
     </div>
   )
 }
 
-export default function Page() {
+function Page() {
   return <Dashboard />
 }
+
+// export default PageWithAuth(Page)
+export default Page

@@ -1,7 +1,8 @@
 'use client'
 
 import { useState } from 'react'
-import { useRouter } from 'next/navigation'
+
+//import { useRouter } from 'next/navigation'
 import useMediaQuery from '@mui/material/useMediaQuery'
 import { styled, useTheme } from '@mui/material/styles'
 import Typography from '@mui/material/Typography'
@@ -17,6 +18,11 @@ import CustomTextField from '@core/components/mui/TextField'
 import { useImageVariant } from '@core/hooks/useImageVariant'
 import { useSettings } from '@core/hooks/useSettings'
 import axios from 'axios'
+import { ToastContainer, toast } from 'react-toastify'
+import 'react-toastify/dist/ReactToastify.css'
+import { useRouter } from 'next/navigation'
+
+//import axios from 'axios'
 
 // Reuse the same styled components
 const RegisterIllustration = styled('img')(({ theme }) => ({
@@ -49,7 +55,7 @@ interface RegisterData {
   confirmPassword: string
 }
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL
+//const API_URL = process.env.NEXT_PUBLIC_API_URL
 
 const RegisterV2 = ({ mode }: { mode: SystemMode }) => {
   // States
@@ -98,6 +104,7 @@ const RegisterV2 = ({ mode }: { mode: SystemMode }) => {
       ...prev,
       [field]: e.target.value
     }))
+
     // Clear error when user starts typing
     if (errors[field]) {
       setErrors(prev => ({
@@ -133,26 +140,84 @@ const RegisterV2 = ({ mode }: { mode: SystemMode }) => {
     }
 
     setErrors(newErrors)
+
     return Object.keys(newErrors).length === 0
   }
 
   const register = async () => {
+    console.log('CALLED')
     if (!validateForm()) return
 
+    const data = {
+      email: formData.email,
+      username: formData.username,
+      password: formData.password,
+      password2: formData.confirmPassword
+    }
+
     try {
-      const response = await axios.post(`${API_URL}/accounts/register/`, formData, {
+      const response = await axios.post(`http://127.0.0.1:8000/api/auth/register/`, data, {
         headers: {
-          'Content-Type': 'multipart/form-data'
+          'Content-Type': 'application/json' // Use JSON format for JWT
         }
       })
-      router.push('/login')
+
+      toast.success('Successfully registered!', {
+        position: 'top-right',
+        autoClose: 2000,
+        hideProgressBar: false,
+        closeOnClick: true,
+        pauseOnHover: true,
+        draggable: true
+      })
+
+      // Add delay before redirect to show the toast
+      setTimeout(() => {
+        router.push('/login')
+      }, 2000)
     } catch (error) {
-      console.error('Registration error:', error)
+      let errorMessage = 'Invalid credentials'
+
+      if (axios.isAxiosError(error) && error.response?.data?.detail) {
+        errorMessage = error.response.data.detail
+      }
+
+      toast.error(errorMessage, {
+        position: 'top-right',
+        autoClose: 4000,
+        hideProgressBar: false,
+        closeOnClick: true,
+        pauseOnHover: true,
+        draggable: true
+      })
     }
+
+    // try {
+    //   const response = await axios.post(`${API_URL}/accounts/register/`, formData, {
+    //     headers: {
+    //       'Content-Type': 'multipart/form-data'
+    //     }
+    //   })
+    //   router.push('/login')
+    // } catch (error) {
+    //   console.error('Registration error:', error)
+    // }
   }
 
   return (
     <div className='flex bs-full justify-center'>
+      <ToastContainer
+        position='top-right'
+        autoClose={3000}
+        hideProgressBar={false}
+        newestOnTop
+        closeOnClick
+        rtl={false}
+        pauseOnFocusLoss
+        draggable
+        pauseOnHover
+        theme={mode === 'dark' ? 'dark' : 'light'}
+      />
       <div
         className={classnames(
           'flex bs-full items-center justify-center flex-1 min-bs-[100dvh] relative p-6 max-md:hidden',
@@ -260,21 +325,6 @@ const RegisterV2 = ({ mode }: { mode: SystemMode }) => {
               <Typography component={Link} href='/login' color='primary'>
                 Sign in instead
               </Typography>
-            </div>
-            <Divider className='gap-2 text-textPrimary'>or</Divider>
-            <div className='flex justify-center items-center gap-1.5'>
-              <IconButton className='text-facebook' size='small'>
-                <i className='tabler-brand-facebook-filled' />
-              </IconButton>
-              <IconButton className='text-twitter' size='small'>
-                <i className='tabler-brand-twitter-filled' />
-              </IconButton>
-              <IconButton className='text-textPrimary' size='small'>
-                <i className='tabler-brand-github-filled' />
-              </IconButton>
-              <IconButton className='text-error' size='small'>
-                <i className='tabler-brand-google-filled' />
-              </IconButton>
             </div>
           </form>
         </div>

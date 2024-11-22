@@ -64,6 +64,7 @@ const UserDropdown = () => {
 
   const handleUserLogout = async () => {
     // Redirect to login page
+    localStorage.removeItem('accessToken')
     router.push('/login')
   }
 
@@ -79,7 +80,7 @@ const UserDropdown = () => {
         <Avatar
           ref={anchorRef}
           alt='John Doe'
-          src='/images/avatars/1.png'
+          src='/images/avatars/dummy_catalog.png'
           onClick={handleDropdownOpen}
           className='cursor-pointer bs-[38px] is-[38px]'
         />

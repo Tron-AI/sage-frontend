@@ -94,11 +94,59 @@ const FieldDefinePopup = ({ field, onClose, onSave }) => {
               <label className='block text-sm font-medium text-gray-700'>Length</label>
               <input
                 type='number'
-                name='maxLength'
-                value={fieldData.maxLength}
+                name='length'
+                value={fieldData.length}
                 onChange={handleChange}
                 className='mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500'
               />
+              <div className='flex items-center space-x-4 mt-4'>
+                <div className='flex items-center'>
+                  <input
+                    type='checkbox'
+                    name='phoneFormat'
+                    checked={fieldData.phoneFormat}
+                    onChange={handleChange}
+                    className='h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded'
+                  />
+                  <label className='ml-2 block text-sm text-gray-900'>Phone Format</label>
+                </div>
+                <div className='flex items-center'>
+                  <input
+                    type='checkbox'
+                    name='emailFormat'
+                    checked={fieldData.emailFormat}
+                    onChange={handleChange}
+                    className='h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded'
+                  />
+                  <label className='ml-2 block text-sm text-gray-900'>Email Format</label>
+                </div>
+              </div>
+            </div>
+          )}
+          {(fieldData.type === 'INT' || fieldData.type === 'DECIMAL') && (
+            <div>
+              <div className='flex items-center space-x-4'>
+                <div>
+                  <label className='block text-sm font-medium text-gray-700'>Min</label>
+                  <input
+                    type='number'
+                    name='minValue'
+                    value={fieldData.minValue}
+                    onChange={handleChange}
+                    className='mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500'
+                  />
+                </div>
+                <div>
+                  <label className='block text-sm font-medium text-gray-700'>Max</label>
+                  <input
+                    type='number'
+                    name='maxValue'
+                    value={fieldData.maxValue}
+                    onChange={handleChange}
+                    className='mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500'
+                  />
+                </div>
+              </div>
             </div>
           )}
           {fieldData.type === 'DECIMAL' && (
@@ -113,20 +161,33 @@ const FieldDefinePopup = ({ field, onClose, onSave }) => {
               />
             </div>
           )}
+
           {fieldData.type === 'DATE' && (
             <div>
-              <label className='block text-sm font-medium text-gray-700'>Date Validation</label>
-              <select
-                name='dateValidation'
-                value={fieldData.dateValidation}
-                onChange={handleChange}
-                className='mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500'
-              >
-                <option value='any'>Any Date</option>
-                <option value='past'>Past Dates Only</option>
-                <option value='future'>Future Dates Only</option>
-                <option value='custom'>Custom Range</option>
-              </select>
+              <div>
+                <label className='block text-sm font-medium text-gray-700'>Date Validation</label>
+                <select
+                  name='dateValidation'
+                  value={fieldData.dateValidation}
+                  onChange={handleChange}
+                  className='mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500'
+                >
+                  <option value='any'>Any Date</option>
+                  <option value='past'>Past Dates Only</option>
+                  <option value='future'>Future Dates Only</option>
+                  <option value='custom'>Custom Range</option>
+                </select>
+              </div>
+              <div>
+                <label className='block text-sm font-medium text-gray-700'>Date Format</label>
+                <input
+                  type='text'
+                  name='dateFormat'
+                  value={fieldData.dateFormat}
+                  onChange={handleChange}
+                  className='mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500'
+                />
+              </div>
             </div>
           )}
           <div>
@@ -134,7 +195,17 @@ const FieldDefinePopup = ({ field, onClose, onSave }) => {
             <input
               type='text'
               name='allowedValues'
-              value={fieldData.allowedValues}
+              value={fieldData.picklist_values}
+              onChange={handleChange}
+              className='mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500'
+            />
+          </div>
+          <div>
+            <label className='block text-sm font-medium text-gray-700'>Custom Validation</label>
+            <input
+              type='text'
+              name='customValidation'
+              value={fieldData.customValidation}
               onChange={handleChange}
               className='mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500'
             />

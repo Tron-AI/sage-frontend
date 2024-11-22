@@ -1,5 +1,6 @@
 'use client'
-import React, { useState } from 'react'
+import React, { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
 
 const InputField = ({ label, placeholder, value, onChange }) => (
   <div className='mb-4'>
@@ -25,14 +26,37 @@ const ConfigButton = ({ children, onClick }) => (
 
 const HomologationConfigurations = () => {
   const [name, setName] = useState('')
+  const router = useRouter()
   const [corporate, setCorporate] = useState('')
   const [product, setProduct] = useState('')
   const [responsible, setResponsible] = useState('')
   const [frequency, setFrequency] = useState('Daily')
+  const [isAuthenticated, setIsAuthenticated] = useState(false)
 
   const handleSaveConfiguration = () => {
     // Implement save logic here
     console.log('Saving configuration...')
+  }
+
+  useEffect(() => {
+    const checkAccessTokenAndFetchCatalogs = async () => {
+      const token = localStorage.getItem('accessToken')
+      if (!token) {
+        // Redirect to login page if access token is not found
+        router.push('/login')
+
+        return
+      }
+
+      // If token exists, set authenticated state to true
+      setIsAuthenticated(true)
+    }
+
+    checkAccessTokenAndFetchCatalogs()
+  }, [router])
+
+  if (!isAuthenticated) {
+    return <div>Loading...</div> // Or null to not render anything
   }
 
   return (

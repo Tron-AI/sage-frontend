@@ -1,5 +1,6 @@
 'use client'
-import React from 'react'
+import React, { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer } from 'recharts'
 
 const DashboardCard = ({ title, value, subtitle, color }) => (
@@ -20,8 +21,8 @@ const PendingAlert = ({ distributor, message, status }) => (
         status === 'Pending'
           ? 'bg-yellow-200 text-yellow-800'
           : status === 'Rejected'
-          ? 'bg-red-200 text-red-800'
-          : 'bg-blue-200 text-blue-800'
+            ? 'bg-red-200 text-red-800'
+            : 'bg-blue-200 text-blue-800'
       }`}
     >
       {status}
@@ -30,6 +31,12 @@ const PendingAlert = ({ distributor, message, status }) => (
 )
 
 const HomologationDashboard = () => {
+  const router = useRouter()
+  const [catalogs, setCatalogs] = useState([])
+  const [message, setMessage] = useState('')
+  const [isModalOpen, setIsModalOpen] = useState(false)
+  const [isAuthenticated, setIsAuthenticated] = useState(false)
+
   const pieData = [
     { name: 'Homologated', value: 320 },
     { name: 'Pending', value: 100 },
@@ -43,6 +50,28 @@ const HomologationDashboard = () => {
   ]
 
   const COLORS = ['#4CAF50', '#FFC107', '#F44336']
+
+  useEffect(() => {
+    const checkAccessTokenAndFetchCatalogs = async () => {
+      const token = localStorage.getItem('accessToken')
+      if (!token) {
+        // Redirect to login page if access token is not found
+        router.push('/login')
+
+        return
+      }
+
+      // If token exists, set authenticated state to true
+      setIsAuthenticated(true)
+    }
+
+    checkAccessTokenAndFetchCatalogs()
+  }, [router]) // Include router as a dependency
+
+  // Return a loading state or nothing until the authentication check is done
+  if (!isAuthenticated) {
+    return null // Or null to not render anything
+  }
 
   return (
     <div className='p-6 max-w-6xl mx-auto'>

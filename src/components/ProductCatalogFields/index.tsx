@@ -2,14 +2,7 @@ import React, { useState } from 'react'
 import { X, Plus } from 'lucide-react'
 import FieldDefinePopup from '@components/FieldDefinePopup'
 
-const ProductCatalogFields = ({ onClose }) => {
-  const [fields, setFields] = useState([
-    { id: 1, name: 'Product Name', type: 'VARCHAR', length: 100, null: false, primaryKey: false },
-    { id: 2, name: 'Product Code', type: 'INT', length: 10, null: false, primaryKey: true },
-    { id: 3, name: 'Price', type: 'DECIMAL', length: 5, null: false, primaryKey: false },
-    { id: 4, name: 'Stock Quantity', type: 'INT', length: 5, null: false, primaryKey: false }
-  ])
-
+const ProductCatalogFields = ({ fields, setFields, onClose }) => {
   const [showDefinePopup, setShowDefinePopup] = useState(false)
   const [currentField, setCurrentField] = useState(null)
 
@@ -54,7 +47,7 @@ const ProductCatalogFields = ({ onClose }) => {
               <th className='py-2 px-4 border-b text-center'>Length</th>
               <th className='py-2 px-4 border-b text-center'>Null</th>
               <th className='py-2 px-4 border-b text-center'>Primary Key (PK)</th>
-              <th className='py-2 px-4 border-b text-center'>Actions</th>
+              <th className='py-2 px-4 border-b text-center'>Validations</th>
             </tr>
           </thead>
           <tbody>
@@ -66,7 +59,7 @@ const ProductCatalogFields = ({ onClose }) => {
                 <td className='py-2 px-4 text-center'>
                   <input
                     type='checkbox'
-                    checked={field.null}
+                    checked={!(field.isRequired || field.isPrimaryKey)}
                     readOnly
                     className='form-checkbox h-5 w-5 text-blue-600'
                   />
@@ -74,7 +67,7 @@ const ProductCatalogFields = ({ onClose }) => {
                 <td className='py-2 px-4 text-center'>
                   <input
                     type='checkbox'
-                    checked={field.primaryKey}
+                    checked={field.isPrimaryKey}
                     readOnly
                     className='form-checkbox h-5 w-5 text-blue-600'
                   />

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import type { SystemMode } from '@core/types'
 import useMediaQuery from '@mui/material/useMediaQuery'
@@ -86,44 +86,58 @@ const LoginV2 = ({ mode }: { mode: SystemMode }) => {
 
   const handleClickShowPassword = () => setIsPasswordShown(show => !show)
 
+  useEffect(() => {
+    const token = localStorage.getItem('accessToken')
+    if (token) {
+      router.push('/home')
+
+      return
+    }
+  }, [])
+
   const login = async () => {
     // Validate inputs
     if (!username || !password) {
       toast.error('Please fill in all fields')
+
       return
     }
 
     setIsLoading(true)
 
-    const data: LoginData = {
+    const data = {
       username: username,
       password: password
     }
 
     try {
-      await axios
-        .post(`${API_URL}/api/auth/login/`, data, {
-          headers: {
-            'Content-Type': 'multipart/form-data'
-          }
-        })
-        .then((data: any) => {
-          debugger
-          toast.success('Successfully logged in!', {
-            position: 'top-right',
-            autoClose: 2000,
-            hideProgressBar: false,
-            closeOnClick: true,
-            pauseOnHover: true,
-            draggable: true
-          })
+      const response = await axios.post(`http://127.0.0.1:8000/api/auth/login/`, data, {
+        headers: {
+          'Content-Type': 'application/json' // Use JSON format for JWT
+        }
+      })
 
-          // Add delay before redirect to show the toast
-          setTimeout(() => {
-            // Add your post-login logic here (e.g., storing tokens)
-            router.push('/dashboard')
-          }, 2000)
-        })
+      // Assuming the response contains access and refresh tokens
+      const { access, refresh } = response.data
+
+      // Store tokens in localStorage or sessionStorage
+      localStorage.setItem('accessToken', access)
+      localStorage.setItem('refreshToken', refresh)
+      console.log(access, refresh)
+
+      toast.success('Successfully logged in!', {
+        position: 'top-right',
+        autoClose: 2000,
+        hideProgressBar: false,
+        closeOnClick: true,
+        pauseOnHover: true,
+        draggable: true
+      })
+
+      // Add delay before redirect to show the toast
+      setTimeout(() => {
+        router.push('/home')
+      }, 2000)
     } catch (error) {
       let errorMessage = 'Invalid credentials'
 
@@ -237,24 +251,9 @@ const LoginV2 = ({ mode }: { mode: SystemMode }) => {
             </Button>
             <div className='flex justify-center items-center flex-wrap gap-2'>
               <Typography>New on our platform?</Typography>
-              <Typography component={Link} color='primary'>
+              <Typography component={Link} href='/register' color='primary'>
                 Create an account
               </Typography>
-            </div>
-            <Divider className='gap-2 text-textPrimary'>or</Divider>
-            <div className='flex justify-center items-center gap-1.5'>
-              <IconButton className='text-facebook' size='small'>
-                <i className='tabler-brand-facebook-filled' />
-              </IconButton>
-              <IconButton className='text-twitter' size='small'>
-                <i className='tabler-brand-twitter-filled' />
-              </IconButton>
-              <IconButton className='text-textPrimary' size='small'>
-                <i className='tabler-brand-github-filled' />
-              </IconButton>
-              <IconButton className='text-error' size='small'>
-                <i className='tabler-brand-google-filled' />
-              </IconButton>
             </div>
           </form>
         </div>

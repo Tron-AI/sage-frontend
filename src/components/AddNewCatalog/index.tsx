@@ -5,6 +5,10 @@ import 'react-datepicker/dist/react-datepicker.css'
 import CreatableSelect from 'react-select/creatable'
 import axios from 'axios'
 import Select from 'react-select'
+import { toast, ToastContainer } from 'react-toastify'
+import { useRouter } from 'next/navigation'
+
+import 'react-toastify/dist/ReactToastify.css'
 
 const predefinedTags = [
   { value: 'sales', label: 'Sales' },
@@ -14,9 +18,10 @@ const predefinedTags = [
   { value: 'financial', label: 'Financial' }
 ]
 
-const AddNewCatalog = ({ onDefineFields }) => {
+const AddNewCatalog = ({ fields, onDefineFields }) => {
+  const router = useRouter()
   const [isLoading, setIsLoading] = useState(false)
-  const [error, setError] = useState('')
+  const [errors, setErrors] = useState([])
   const [users, setUsers] = useState([])
   const [isLoadingUsers, setIsLoadingUsers] = useState(false)
   const [userError, setUserError] = useState(null)
@@ -62,6 +67,13 @@ const AddNewCatalog = ({ onDefineFields }) => {
 
   const removeIcon = () => {
     setIconPreview(null)
+  }
+  const token = localStorage.getItem('accessToken')
+  if (!token) {
+    // Redirect to login page if access token is not found
+    router.push('/login')
+
+    return
   }
 
   // const handleDefineFields = () => {
@@ -135,13 +147,13 @@ const AddNewCatalog = ({ onDefineFields }) => {
     setSelectedTags([])
     setIconPreview(null)
     setDeadline(null)
-    setError(null)
+    setErrors([])
   }
 
   const handleDefineFields = async () => {
     try {
       setIsLoading(true)
-      setError(null)
+      setErrors([])
 
       // First create the schema to get the ID
       // const productId = await handleSchemaSubmit()
@@ -157,66 +169,80 @@ const AddNewCatalog = ({ onDefineFields }) => {
       //   tags: selectedTags
       // })
     } catch (err) {
-      setError('Failed to define schema fields. Please try again.')
+      setErrors(prevErrors => [...prevErrors, 'Failed to define schema fields. Please try again.'])
     } finally {
       setIsLoading(false)
     }
   }
 
   const handleSubmit = async e => {
-    debugger
     e.preventDefault()
-    const errors = validateForm()
+    const errorsInForm = validateForm()
 
-    if (Object.keys(errors).length > 0) {
-      setError('Please fix the form errors before submitting.')
+    if (Object.keys(errorsInForm).length > 0) {
+      const errorMessages = Object.values(errorsInForm).join('\n')
+      setErrors(prevErrors => [...prevErrors, `Please fix the form errors before submitting:\n${errorMessages}`])
+      console.log(errorsInForm)
+
       return
     }
 
     try {
       setIsLoading(true)
-      setError(null)
+      setErrors([])
 
-      // First create the schema
+      // First, create the schema and get productId
       const productId = await handleSchemaSubmit()
+      await handleFieldsSubmit(productId)
 
-      // Prepare catalog data
-      const catalogFormData = new FormData()
-      catalogFormData.append('product_id', productId)
-      catalogFormData.append('catalog_name', formData.catalogName)
-      catalogFormData.append('corporate', formData.corporate)
-      catalogFormData.append('responsible_user', formData.responsibleUser)
-      catalogFormData.append('menu', formData.menu)
-      catalogFormData.append('mandatory', formData.mandatory)
-      catalogFormData.append('frequency', formData.frequency)
-      catalogFormData.append('deadline', deadline ? deadline.toISOString().split('T')[0] : '')
-      catalogFormData.append('api_key', formData.apiKey)
-      catalogFormData.append('submission_email', formData.submissionEmail)
-      catalogFormData.append('authorized_emails', formData.authorizedEmails)
-      catalogFormData.append('sftp_folder', formData.sftpFolder)
-      catalogFormData.append('tags', JSON.stringify(selectedTags.map(tag => tag.value)))
-
-      // Handle icon file
-      if (iconPreview) {
-        // Convert base64 to file
-        const iconBlob = await fetch(iconPreview).then(r => r.blob())
-        catalogFormData.append('icon', iconBlob, 'icon.png')
+      // Prepare catalog data as an object (not FormData)
+      const catalogData = {
+        product_id: productId,
+        name: formData.catalogName,
+        corporate: formData.corporate,
+        responsible_user_id: formData.responsibleUser,
+        menu: formData.menu,
+        mandatory: formData.mandatory,
+        frequency: formData.frequency,
+        api_key: formData.apiKey,
+        submission_email: formData.submissionEmail,
+        authorized_emails_list: formData.authorizedEmails.split('\n').map(email => email.trim()), // Array of emails
+        tags: formData.tags.split(',').map(tag => tag.trim()), // Array of tags
+        deadline: deadline ? deadline.toISOString().split('T')[0] : '', // Format deadline
+        sftp_folder: formData.sftpFolder
       }
 
-      // Create catalog
-      const response = await axios.post('http://127.0.0.1:8000/api/catalog/create/', catalogFormData, {
+      // Handle icon file if present, convert to base64 or provide a URL
+      if (iconPreview) {
+        // If iconPreview is base64 image data, include it in the request
+        catalogData.icon = iconPreview
+      }
+      console.log(catalogData)
+
+      // Send POST request with JSON payload
+      const response = await axios.post('http://127.0.0.1:8000/api/catalogs/', catalogData, {
         headers: {
-          'Content-Type': 'multipart/form-data'
+          'Content-Type': 'application/json', // Set content type to JSON
+          Authorization: `Bearer ${token}`
         }
       })
-
-      if (response.data.status === 'success') {
-        // router.push('/catalogs') // Redirect to catalogs list
-      } else {
-        throw new Error(response.data.message)
+      if (response.status === 201) {
+        // Check if the status is 201 (created)
+        toast.success('Catalog created successfully!', {
+          position: 'top-right',
+          autoClose: 5000,
+          hideProgressBar: false,
+          closeOnClick: true,
+          pauseOnHover: true,
+          draggable: true,
+          progress: undefined
+        })
       }
     } catch (err) {
-      setError(err.response?.data?.message || 'Failed to create catalog. Please try again.')
+      setErrors(prevErrors => [
+        ...prevErrors,
+        err.response?.data?.message || 'Failed to create catalog. Please try again.'
+      ])
     } finally {
       setIsLoading(false)
     }
@@ -225,21 +251,123 @@ const AddNewCatalog = ({ onDefineFields }) => {
   const handleSchemaSubmit = async () => {
     try {
       setIsLoading(true)
-      setError(null)
 
       const schemaData = {
         schema_name: formData.product,
         domain: formData.domain,
         description: formData.description
       }
-      const url = 'http://127.0.0.1:8000/api/schema/create/'
+      const url = 'http://127.0.0.1:8000/api/products/'
 
-      const response = await axios.post(url, schemaData)
+      const response = await axios.post(url, schemaData, {
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
+        }
+      })
 
-      return response.data.product_id
+      return response.data.id
     } catch (err) {
-      setError('Failed to create schema. Please try again.')
+      setErrors(prevErrors => [...prevErrors, 'Failed to create schema. Please try again.'])
       throw err
+    }
+  }
+
+  const handleFieldsSubmit = async productId => {
+    const url = `http://127.0.0.1:8000/api/product/${productId}/field/`
+
+    try {
+      console.log(`Product id: : ${productId}`)
+
+      // Create a set to track names
+      const fieldNames = new Set()
+
+      for (const field of fields) {
+        // Check if the field name is already in the set
+        if (fieldNames.has(field.name)) {
+          console.error(`Field name "${field.name}" is not unique.`)
+          setErrors(prevErrors => [...prevErrors, `Field name "${field.name}" is not unique.`])
+          throw new Error(`Field name "${field.name}" is not unique.`)
+        }
+
+        // Add the field name to the set
+        fieldNames.add(field.name)
+
+        const fieldPayload = {
+          name: field.name,
+          field_type: field.type.toLowerCase(),
+          length: field.length,
+          is_null: field.null,
+          is_primary_key: field.primaryKey
+        }
+        console.log(fieldPayload)
+
+        // Post the field to the API and get the response
+        const response = await axios.post(url, fieldPayload, {
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`
+          }
+        })
+
+        // Save the returned field ID in the corresponding field
+        field.id = response.data.id
+        console.log(`Field created with ID: ${field.id}`)
+
+        try {
+          const response2 = await handleValidationRuleSubmit(productId, field)
+          console.log(`Validation rule created with id: ${response2.data.id}`)
+        } catch (validationError) {
+          console.error(`Validation rule creation failed for field ID: ${field.id}`, validationError)
+          setErrors(prevErrors => [
+            ...prevErrors,
+            `Validation rule creation failed for field ID: ${field.id}` + validationError
+          ])
+        }
+      }
+    } catch (err) {
+      console.error('Failed to create product fields:', err)
+      setErrors(prevErrors => [...prevErrors, 'Failed to create product fields.'])
+      throw new Error('Error creating fields')
+    }
+  }
+
+  const handleValidationRuleSubmit = async (productId, field) => {
+    const url = `http://127.0.0.1:8000/api/product/${productId}/field/${field.id}/validation-rule/`
+
+    try {
+      const validationPayload = {
+        is_unique: field.isUnique || false,
+        is_picklist: field.isPicklist || false,
+        picklist_values: field.picklistValues || '',
+        has_min_max: !!(field.minValue || field.maxValue),
+        min_value: field.minValue || null,
+        max_value: field.maxValue || null,
+        is_email_format: field.emailFormat || false,
+        is_phone_format: field.phoneFormat || false,
+        has_max_decimal: field.decimalPlaces || false,
+        max_decimal_places: field.decimalPlaces || null,
+        has_date_format: field.hasDateFormat || false,
+        date_format: field.dateFormat || '',
+        has_max_days_of_age: field.hasMaxDaysOfAge || false,
+        max_days_of_age: field.maxDaysOfAge || null,
+        custom_validation: field.customValidation || ''
+      }
+
+      console.log(validationPayload)
+      const response = await axios.post(url, validationPayload, {
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
+        }
+      })
+      console.log(`Validation rule created successfully for field ID: ${field.id}`)
+
+      return response
+    } catch (err) {
+      console.error(`Failed to create validation rule for field ID: ${field.id}`, err)
+      setErrors(prevErrors => [...prevErrors, `Failed to create validation rule for field ID: ${field.id}` + err])
+      throw new Error('Error creating validation rule')
     }
   }
 
@@ -271,6 +399,18 @@ const AddNewCatalog = ({ onDefineFields }) => {
       }
     }
 
+    // Validate deadline
+    if (!deadline) {
+      errors.deadline = 'Deadline is required'
+    } else {
+      const today = new Date()
+      today.setHours(0, 0, 0, 0) // Set time to midnight for accurate comparison
+
+      if (deadline <= today) {
+        errors.deadline = 'Deadline must be a future date'
+      }
+    }
+
     return errors
   }
 
@@ -278,10 +418,17 @@ const AddNewCatalog = ({ onDefineFields }) => {
 
   const fetchUsers = async () => {
     try {
-      const response = await axios.get(`${API_URL}/accounts/users/`)
+      const response = await axios.get(`${API_URL}/api/auth/users/`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'multipart/form-data'
+        }
+      })
+
       return response.data.users
     } catch (error) {
       console.error('Error fetching users:', error)
+      setErrors(prevErrors => [...prevErrors, 'Error fetching users:' + error])
       throw error
     }
   }
@@ -340,6 +487,7 @@ const AddNewCatalog = ({ onDefineFields }) => {
 
   return (
     <div className='min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 p-4 sm:p-6 lg:p-8'>
+      <ToastContainer />
       <div className='max-w-7xl mx-auto bg-white shadow-xl rounded-xl overflow-hidden'>
         <div className='bg-gradient-to-r from-blue-600 to-purple-600 p-6 flex items-center gap-3'>
           <FileSpreadsheet className='w-8 h-8 text-white' />
@@ -347,7 +495,16 @@ const AddNewCatalog = ({ onDefineFields }) => {
         </div>
 
         {/* Add error message display */}
-        {error && <div className='p-4 mb-4 text-red-700 bg-red-100 rounded-lg'>{error}</div>}
+        {/* {error && <div className='p-4 mb-4 text-red-700 bg-red-100 rounded-lg'>{error}</div>} */}
+        {errors.length > 0 && (
+          <div className='p-4 mb-4 text-red-700 bg-red-100 rounded-lg'>
+            {errors.map((error, index) => (
+              <div key={index} className='error-message'>
+                {error}
+              </div>
+            ))}
+          </div>
+        )}
 
         <form onSubmit={handleSubmit} className='p-6 space-y-8'>
           {/* Catalog Information */}
@@ -365,6 +522,7 @@ const AddNewCatalog = ({ onDefineFields }) => {
                   value={formData.catalogName}
                   onChange={handleInputChange}
                   className={inputClasses}
+                  required
                 />
               </div>
               <div>
@@ -410,6 +568,7 @@ const AddNewCatalog = ({ onDefineFields }) => {
                 <label className='block text-sm font-medium text-gray-700 mb-1'>Tags</label>
                 <CreatableSelect
                   isMulti
+                  required
                   options={predefinedTags}
                   value={selectedTags}
                   onChange={handleTagChange}
@@ -439,6 +598,7 @@ const AddNewCatalog = ({ onDefineFields }) => {
                   value={formData.corporate}
                   onChange={handleInputChange}
                   className={inputClasses}
+                  required
                 />
               </div>
               <div>
@@ -455,6 +615,7 @@ const AddNewCatalog = ({ onDefineFields }) => {
                   isClearable
                   className='react-select-container'
                   classNamePrefix='react-select'
+                  required
                 />
                 {userError && <p className='mt-1 text-sm text-red-600'>{userError}</p>}
               </div>
@@ -466,6 +627,7 @@ const AddNewCatalog = ({ onDefineFields }) => {
                   value={formData.menu}
                   onChange={handleInputChange}
                   className={inputClasses}
+                  required
                 />
               </div>
             </div>
@@ -486,6 +648,7 @@ const AddNewCatalog = ({ onDefineFields }) => {
                   value={formData.product}
                   onChange={handleInputChange}
                   className={inputClasses}
+                  required
                 />
               </div>
               <div>
@@ -496,6 +659,7 @@ const AddNewCatalog = ({ onDefineFields }) => {
                   value={formData.domain}
                   onChange={handleInputChange}
                   className={inputClasses}
+                  required
                 />
               </div>
               <div className='md:col-span-2'>
@@ -571,6 +735,7 @@ const AddNewCatalog = ({ onDefineFields }) => {
                   value={formData.apiKey}
                   onChange={handleInputChange}
                   className={inputClasses}
+                  required
                 />
               </div>
               <div>
@@ -581,6 +746,7 @@ const AddNewCatalog = ({ onDefineFields }) => {
                   value={formData.submissionEmail}
                   onChange={handleInputChange}
                   className={inputClasses}
+                  required
                 />
               </div>
               <div>
@@ -591,6 +757,7 @@ const AddNewCatalog = ({ onDefineFields }) => {
                   onChange={handleInputChange}
                   rows='3'
                   className={inputClasses}
+                  required
                 ></textarea>
               </div>
               <div>
@@ -601,6 +768,7 @@ const AddNewCatalog = ({ onDefineFields }) => {
                   value={formData.sftpFolder}
                   onChange={handleInputChange}
                   className={inputClasses}
+                  required
                 />
               </div>
             </div>
